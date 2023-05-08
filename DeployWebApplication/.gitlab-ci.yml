@@ -1,0 +1,51 @@
+image:
+  name: hashicorp/terraform:latest
+  entrypoint:
+    - "/usr/bin/env"
+    - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+before_script:
+  - rm -rf .terraform
+  - terraform --version
+  - terraform init -backend-config="bucket=$S3_BUCKET" -backend-config="key=$APP_NAME/$ENVIRONMENT/application.tfstate" -backend-config='region=us-east-1'
+
+stages:
+  - validate
+  - plan
+  - apply
+  - destroy
+
+validate:
+  stage: validate
+  script:
+    - terraform validate
+
+plan:
+  stage: plan
+  script:
+    - terraform plan -var="webapp_name=$APP_NAME" -out "planfile"
+  dependencies:
+    - validate
+  artifacts:
+    paths:
+      - ./planfile
+
+apply:
+  stage: apply
+  when: manual
+  script:
+    - terraform apply -input=false "planfile"
+  only:
+    - main
+  dependencies:
+    - plan
+
+destroy:
+  stage: destroy
+  when: manual
+  script:
+    - terraform destroy -var="webapp_name=$APP_NAME" --auto-approve
+  only:
+    - main
+  dependencies:
+    - apply

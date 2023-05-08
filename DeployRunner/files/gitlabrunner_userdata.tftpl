@@ -1,0 +1,30 @@
+#!/bin/bash
+sudo yum -y update
+sudo yum install -y git
+sudo amazon-linux-extras install -y docker
+sudo usermod -aG docker ec2-user
+sudo systemctl enable docker
+sudo systemctl start docker
+
+mkdir -p /home/ec2-user/gitlab-runner
+
+# Start Register GLR
+docker run --rm -v /home/ec2-user/gitlab-runner:/etc/gitlab-runner gitlab/gitlab-runner register \
+  --non-interactive \
+  --executor "docker" \
+  --docker-image alpine:latest \
+  --url "https://gitlab.com/" \
+  --registration-token "${GITLAB_RUNNER_REGISTER_TOKEN}" \
+  --description "docker-runner" \
+  --tag-list "docker,aws" \
+  --run-untagged="true" \
+  --locked="false" \
+  --access-level="not_protected"
+
+# Start GLR Docker Container
+docker run -d \
+--name gitlab-runner \
+--restart always \
+-v /var/run/docker.sock:/var/run/docker.sock \
+-v /home/ec2-user/gitlab-runner:/etc/gitlab-runner \
+gitlab/gitlab-runner:latest

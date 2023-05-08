@@ -1,0 +1,42 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    #Installer Apache dans sa dernière version
+    - name: Install apache2
+      apt: name=apache2 update_cache=no state=latest
+
+    #Changer le port d’écoute d’Apache sur le port 8080
+    - name: Change Apache listening port
+      lineinfile:
+        path: /etc/apache2/ports.conf
+        regexp: "^Listen "
+        line: "Listen 8080"
+
+    # Supprimer le default website d’Apache
+    - name: Delete default website
+      file:
+        path: /var/www/html
+        state: absent
+
+    # Cloner le repo Github du site web
+    - name: Clone github repo
+      git:
+        repo: https://github.com/cloudacademy/static-website-example.git
+        dest: /var/www/webapp
+        version: master
+        clone: yes
+
+    # Remplacer la configuration par défaut par webapp.conf
+    - name: Configure new website on Apache
+      copy:
+        src: webapp.conf
+        dest: /etc/apache2/sites-available/000-default.conf
+      notify:
+        - restart apache
+
+  handlers:
+    - name: restart apache
+      service:
+        name: apache2
+        state: restarted

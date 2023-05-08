@@ -1,0 +1,38 @@
+image:
+  name: karimbazizi/packer-ansible:latest
+  entrypoint:
+    - "/usr/bin/env"
+    - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+stages:
+  - validate
+  - deploy
+  - clean
+
+validate:
+  stage: validate
+  script:
+    - packer validate -var "app_name=$APP_NAME" buildAMI.pkr.hcl
+  before_script:
+    - packer -v
+
+deploy:
+  stage: deploy
+  when: manual
+  script:
+    - packer build -var "app_name=$APP_NAME" buildAMI.pkr.hcl
+  dependencies:
+    - validate
+  before_script:
+    - ansible --version
+
+clean:
+  stage: clean
+  image:
+    name: karimbazizi/aws-amicleaner:latest
+    entrypoint:
+      - "/usr/bin/env"
+      - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  when: manual
+  script:
+    - AWS_DEFAULT_REGION='us-east-1' amicleaner --mapping-key "name" --mapping-values $APP_NAME --keep-previous 0 --ami-min-days 0 -f
